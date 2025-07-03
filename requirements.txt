@@ -1,0 +1,7 @@
+langchain
+faiss-cpu
+chainlit
+pymupdf
+requests 
+python-dotenv
+pillow 
