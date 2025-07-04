@@ -69,9 +69,10 @@ def query_faiss(faiss_path, query, k=4):
     results = faiss_db.similarity_search_by_vector(query_embedding, k=k)
     return results  
 
-def generate_llm_answer_langchain(context, user_query):
+async def generate_llm_answer_langchain(context, user_query, stream_message=None):
     """
     Uses LangChain AzureChatOpenAI to generate an answer from retrieved context and user query.
+    Supports streaming if stream_message is provided.
     """
     # These come from .env
     azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
@@ -79,21 +80,33 @@ def generate_llm_answer_langchain(context, user_query):
     azure_deployment = os.getenv("DEPLOYMENT_NAME")
     api_version = os.getenv("API_VERSION")
 
-    # Initialize the LangChain LLM
+    # Initialize the LangChain LLM with streaming
     llm = AzureChatOpenAI(
         azure_endpoint=azure_endpoint,
         openai_api_key=azure_api_key,
         deployment_name=azure_deployment,
         api_version=api_version,
         temperature=0.1,
+        streaming=True
     )
 
     # Prepare messages
     system = SystemMessage(content="You are AI Assistant. Provide clear, accurate, and concise answers strictly based on the context provided. Ensure your responses are balanced in length—neither too brief nor overly detailed—delivering essential information effectively and efficiently. Avoid including any information not supported by the given context.")
     user = HumanMessage(content=f"Context:\n{context}\n\nUser Question: {user_query}\n\nAnswer using only the given context.")
 
-    response = llm.invoke([system, user])
-    return response.content.strip()
+    if stream_message:
+        # Stream the response
+        response_content = ""
+        async for chunk in llm.astream([system, user]):
+            if chunk.content:
+                response_content += chunk.content
+                await stream_message.stream_token(chunk.content)
+        await stream_message.update()
+        return response_content.strip()
+    else:
+        # Non-streaming response
+        response = llm.invoke([system, user])
+        return response.content.strip()
 
 # Global variable to store the FAISS index
 faiss_db = None
@@ -168,14 +181,16 @@ async def main(message: cl.Message):
         
         # Prepare context
         context = "\n\n".join([doc.page_content for doc in results])
-                
-        llm_answer = generate_llm_answer_langchain(context, user_query)
         
-        # Send the response
-        await cl.Message(
-            content=llm_answer,
+        # Create a streaming message
+        msg = cl.Message(
+            content="",
             author="Assistant"
-        ).send()
+        )
+        await msg.send()
+        
+        # Stream the response
+        await generate_llm_answer_langchain(context, user_query, msg)
         
     except Exception as e:
         await cl.Message(
