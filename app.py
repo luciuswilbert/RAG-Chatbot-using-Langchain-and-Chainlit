@@ -6,8 +6,8 @@ from langchain.embeddings.base import Embeddings
 from dotenv import load_dotenv
 from langchain_community.vectorstores import FAISS
 from langchain.schema import Document
-
-
+from langchain_openai import AzureChatOpenAI
+from langchain.schema import SystemMessage, HumanMessage
 
 load_dotenv()
 
@@ -27,7 +27,6 @@ def extract_text_from_pdf(pdf_path):
         page = doc.load_page(page_num)
         text += page.get_text()
     return text
-
 
 def chunk_text(text, chunk_size=800, overlap=100):
     """
@@ -61,8 +60,33 @@ def query_faiss(faiss_path, query, k=4):
     )
     query_embedding = embedding_fn.embed_query(query)
     results = faiss_db.similarity_search_by_vector(query_embedding, k=k)
-    for i, doc in enumerate(results):
-        print(f"\nResult {i+1}:\n{doc.page_content}\n")
+    return results  
+
+def generate_llm_answer_langchain(context, user_query):
+    """
+    Uses LangChain AzureChatOpenAI to generate an answer from retrieved context and user query.
+    """
+    # These come from .env
+    azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
+    azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+    azure_deployment = os.getenv("DEPLOYMENT_NAME")
+    api_version = os.getenv("API_VERSION")
+
+    # Initialize the LangChain LLM
+    llm = AzureChatOpenAI(
+        azure_endpoint=azure_endpoint,
+        openai_api_key=azure_api_key,
+        deployment_name=azure_deployment,
+        api_version=api_version,
+        temperature=0.1,
+    )
+
+    # Prepare messages
+    system = SystemMessage(content="You are a helpful assistant that answers based only on the given context.")
+    user = HumanMessage(content=f"Context:\n{context}\n\nUser Question: {user_query}\n\nAnswer using only the given context.")
+
+    response = llm.invoke([system, user])
+    return response.content.strip()
 
 if __name__ == "__main__":
     pdf_path = "Resume - Lucius Wilbert Tjoa.pdf"  
@@ -80,7 +104,17 @@ if __name__ == "__main__":
 
     faiss_db.save_local("my_faiss_index")
     user_query = input("Enter your question: ")
-    query_faiss("my_faiss_index", user_query)
+    results = query_faiss("my_faiss_index", user_query)
+
+    context = "\n\n".join([doc.page_content for doc in results])
+    prompt = (
+        f"Context:\n{context}\n\n"
+        f"User Question: {user_query}\n\n"
+        "Answer using only the given context."
+    )
+
+    llm_answer = generate_llm_answer_langchain(context, user_query)
+    print("\nLLM Answer:\n", llm_answer)
 
 
 
