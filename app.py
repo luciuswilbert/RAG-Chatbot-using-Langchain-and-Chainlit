@@ -2,9 +2,20 @@ import fitz  # PyMuPDF
 import os
 import requests
 
+from langchain.embeddings.base import Embeddings
 from dotenv import load_dotenv
+from langchain_community.vectorstores import FAISS
+from langchain.schema import Document
+
 
 load_dotenv()
+
+class LMStudioEmbeddings(Embeddings):
+    def embed_documents(self, texts):
+        # texts: List[str]
+        return [get_embedding(t) for t in texts]
+    def embed_query(self, text):
+        return get_embedding(text)
 
 LMSTUDIO_API_URL = os.getenv("LMSTUDIO_API_URL")  
 
@@ -46,14 +57,16 @@ if __name__ == "__main__":
     extracted_text = extract_text_from_pdf(pdf_path)
     chunks = chunk_text(extracted_text)
 
-    embeddings = []
-    for idx, chunk in enumerate(chunks):
-        print(f"Embedding chunk {idx+1}/{len(chunks)}...")
-        embedding = get_embedding(chunk)
-        embeddings.append(embedding)
+    embedding_fn = LMStudioEmbeddings()
 
-    # Optionally, print the length of embeddings and one example
-    print(f"Total embeddings: {len(embeddings)}")
-    print(f"First embedding vector (first 10 values): {embeddings[0][:10]}")
+    documents = [Document(page_content=chunk) for chunk in chunks]
+
+    faiss_db = FAISS.from_documents(
+        documents=documents,
+        embedding=embedding_fn
+    )
+
+    faiss_db.save_local("my_faiss_index")
+
 
 
