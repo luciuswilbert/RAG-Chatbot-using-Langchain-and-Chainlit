@@ -1,3 +1,9 @@
+'''
+IN ORDER TO RUN THIS FILE WITHOUT CHAINLIT:
+1. UNCOMMENT THE if __name__ == "__main__" CODE 
+2. Command = python app.py
+'''
+
 import fitz  # PyMuPDF
 import os
 import requests
@@ -155,12 +161,6 @@ async def main(message: cl.Message):
     # Get user query
     user_query = message.content
     
-    # Show typing indicator
-    # await cl.Message(
-    #     content="🔍 Searching for relevant information...",
-    #     author="System"
-    # ).send()
-    
     try:
         # Query FAISS for relevant context
         query_embedding = LMStudioEmbeddings().embed_query(user_query)
@@ -168,19 +168,7 @@ async def main(message: cl.Message):
         
         # Prepare context
         context = "\n\n".join([doc.page_content for doc in results])
-        
-        # Show context being used (optional - for debugging)
-        # await cl.Message(
-        #     content=f"📄 Found {len(results)} relevant document chunks",
-        #     author="System"
-        # ).send()
-        
-        # Generate LLM response
-        # await cl.Message(
-        #     content="🤖 Generating response...",
-        #     author="System"
-        # ).send()
-        
+                
         llm_answer = generate_llm_answer_langchain(context, user_query)
         
         # Send the response
@@ -202,26 +190,11 @@ async def handle_pdf_upload(file_element):
     global faiss_db
     
     try:
-        # await cl.Message(
-        #     content=f"📄 Processing {file_element.name}...",
-        #     author="System"
-        # ).send()
-        
         # Extract text from PDF
         extracted_text = extract_text_from_pdf(file_element.path)
-        
-        # await cl.Message(
-        #     content="✂️ Chunking text...",
-        #     author="System"
-        # ).send()
-        
+                
         # Chunk the text
         chunks = chunk_text(extracted_text)
-        
-        # await cl.Message(
-        #     content="🔧 Creating embeddings...",
-        #     author="System"
-        # ).send()
         
         # Create embeddings and FAISS index
         embedding_fn = LMStudioEmbeddings()
