@@ -13,19 +13,28 @@ from langchain.embeddings.base import Embeddings
 from dotenv import load_dotenv
 from langchain_community.vectorstores import FAISS
 from langchain.schema import Document
-from langchain_openai import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 from langchain.schema import SystemMessage, HumanMessage
 
 load_dotenv()
 
-class LMStudioEmbeddings(Embeddings):
-    def embed_documents(self, texts):
-        # texts: List[str]
-        return [get_embedding(t) for t in texts]
-    def embed_query(self, text):
-        return get_embedding(text)
-
-LMSTUDIO_API_URL = os.getenv("LMSTUDIO_API_URL")  
+def get_azure_embeddings():
+    """
+    Initialize Azure OpenAI embeddings
+    """
+    azure_api_key = os.getenv("AZURE_OPENAI_API_KEY")
+    azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+    embedding_deployment = os.getenv("EMBEDDING_DEPLOYMENT_NAME")
+    embedding_model = os.getenv("EMBEDDING_MODEL_NAME")
+    api_version = os.getenv("API_VERSION")
+    
+    return AzureOpenAIEmbeddings(
+        azure_deployment=embedding_deployment,
+        openai_api_key=azure_api_key,
+        azure_endpoint=azure_endpoint,
+        api_version=api_version,
+        chunk_size=1
+    )
 
 def extract_text_from_pdf(pdf_path):
     doc = fitz.open(pdf_path)
@@ -35,7 +44,7 @@ def extract_text_from_pdf(pdf_path):
         text += page.get_text()
     return text
 
-def chunk_text(text, chunk_size=800, overlap=100):
+def chunk_text(text, chunk_size=300, overlap=500):
     """
     Splits text into chunks with optional overlap.
     """
@@ -48,25 +57,14 @@ def chunk_text(text, chunk_size=800, overlap=100):
         start += chunk_size - overlap
     return chunks
 
-def get_embedding(chunk):
-    payload = {
-        "model": os.getenv("EMBEDDING_MODEL_NAME"),
-        "input": chunk
-    }
-    response = requests.post(f"{LMSTUDIO_API_URL}/embeddings", json=payload)
-    response.raise_for_status()
-    embedding = response.json()["data"][0]["embedding"]
-    return embedding
-
-def query_faiss(faiss_path, query, k=4):
-    embedding_fn = LMStudioEmbeddings()
+def query_faiss(faiss_path, query, k=2):
+    embedding_fn = get_azure_embeddings()
     faiss_db = FAISS.load_local(
         faiss_path,
         embeddings=embedding_fn,
         allow_dangerous_deserialization=True
     )
-    query_embedding = embedding_fn.embed_query(query)
-    results = faiss_db.similarity_search_by_vector(query_embedding, k=k)
+    results = faiss_db.similarity_search(query, k=k)
     return results  
 
 async def generate_llm_answer_langchain(context, user_query, stream_message=None):
@@ -126,7 +124,7 @@ async def start():
         ).send()
         
         # Load existing FAISS index
-        embedding_fn = LMStudioEmbeddings()
+        embedding_fn = get_azure_embeddings()
         faiss_db = FAISS.load_local(
             "my_faiss_index",
             embeddings=embedding_fn,
@@ -176,8 +174,7 @@ async def main(message: cl.Message):
     
     try:
         # Query FAISS for relevant context
-        query_embedding = LMStudioEmbeddings().embed_query(user_query)
-        results = faiss_db.similarity_search_by_vector(query_embedding, k=4)
+        results = faiss_db.similarity_search(user_query, k=4)
         
         # Prepare context
         context = "\n\n".join([doc.page_content for doc in results])
@@ -212,7 +209,7 @@ async def handle_pdf_upload(file_element):
         chunks = chunk_text(extracted_text)
         
         # Create embeddings and FAISS index
-        embedding_fn = LMStudioEmbeddings()
+        embedding_fn = get_azure_embeddings()
         documents = [Document(page_content=chunk) for chunk in chunks]
         
         faiss_db = FAISS.from_documents(
