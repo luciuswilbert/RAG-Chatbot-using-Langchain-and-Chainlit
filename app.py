@@ -44,7 +44,7 @@ def extract_text_from_pdf(pdf_path):
         text += page.get_text()
     return text
 
-def chunk_text(text, chunk_size=300, overlap=500):
+def chunk_text(text, chunk_size=300, overlap=50):
     """
     Splits text into chunks with optional overlap.
     """
@@ -57,7 +57,7 @@ def chunk_text(text, chunk_size=300, overlap=500):
         start += chunk_size - overlap
     return chunks
 
-def query_faiss(faiss_path, query, k=2):
+def query_faiss(faiss_path, query, k=4):
     embedding_fn = get_azure_embeddings()
     faiss_db = FAISS.load_local(
         faiss_path,
