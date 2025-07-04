@@ -8,6 +8,7 @@ from langchain_community.vectorstores import FAISS
 from langchain.schema import Document
 
 
+
 load_dotenv()
 
 class LMStudioEmbeddings(Embeddings):
@@ -28,7 +29,7 @@ def extract_text_from_pdf(pdf_path):
     return text
 
 
-def chunk_text(text, chunk_size=800, overlap=200):
+def chunk_text(text, chunk_size=800, overlap=100):
     """
     Splits text into chunks with optional overlap.
     """
@@ -48,9 +49,20 @@ def get_embedding(chunk):
     }
     response = requests.post(f"{LMSTUDIO_API_URL}/embeddings", json=payload)
     response.raise_for_status()
-    print("API response:", response.json())  # Add this line
     embedding = response.json()["data"][0]["embedding"]
     return embedding
+
+def query_faiss(faiss_path, query, k=4):
+    embedding_fn = LMStudioEmbeddings()
+    faiss_db = FAISS.load_local(
+        faiss_path,
+        embeddings=embedding_fn,
+        allow_dangerous_deserialization=True
+    )
+    query_embedding = embedding_fn.embed_query(query)
+    results = faiss_db.similarity_search_by_vector(query_embedding, k=k)
+    for i, doc in enumerate(results):
+        print(f"\nResult {i+1}:\n{doc.page_content}\n")
 
 if __name__ == "__main__":
     pdf_path = "Resume - Lucius Wilbert Tjoa.pdf"  
@@ -67,6 +79,8 @@ if __name__ == "__main__":
     )
 
     faiss_db.save_local("my_faiss_index")
+    user_query = input("Enter your question: ")
+    query_faiss("my_faiss_index", user_query)
 
 
 
