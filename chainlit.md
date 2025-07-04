@@ -1,14 +1,20 @@
-# Welcome to Chainlit! 🚀🤖
+# PDF Document Chatbot 🤖📄
 
-Hi there, Developer! 👋 We're excited to have you on board. Chainlit is a powerful tool designed to help you prototype, debug and share applications built on top of LLMs.
+Welcome to your AI-powered PDF document assistant! 
 
-## Useful Links 🔗
+## How to use:
 
-- **Documentation:** Get started with our comprehensive [Chainlit Documentation](https://docs.chainlit.io) 📚
-- **Discord Community:** Join our friendly [Chainlit Discord](https://discord.gg/k73SQ3FyUh) to ask questions, share your projects, and connect with other developers! 💬
+1. **Upload a PDF** - Drag and drop or click to upload any PDF document
+2. **Ask Questions** - Once the document is processed, ask any questions about its content
+3. **Get Answers** - The AI will search through the document and provide relevant answers
 
-We can't wait to see what you create with Chainlit! Happy coding! 💻😊
+## Features:
+- 📄 PDF text extraction and processing
+- 🔍 Semantic search using embeddings
+- 🤖 AI-powered question answering
+- 💾 Persistent knowledge base storage
 
-## Welcome screen
+## Supported file types:
+- PDF documents (.pdf)
 
-To modify the welcome screen, edit the `chainlit.md` file at the root of your project. If you do not want a welcome screen, just leave this file empty.
+Start by uploading a PDF file to begin chatting with your documents!
